@@ -39,10 +39,26 @@ Writing passes on the winner:
   Pass 2 revision 2: changed "in the next answer" to "in my next answer"
   -- the possessive makes it the agent's own voice and its own history,
   not a generic report of events.
+
+Revision note (genuine improvement considered after the first draft):
+  The gate guard rejects embedded newlines for a reason the character
+  count alone cannot catch: the brief asks for a single line, and a
+  newline inside the text would make entry.txt hold two lines even
+  though the character count still passes. So the newline check is not
+  redundant with the length check -- it guards the shape of the output,
+  not its size. Likewise, the whitespace-only check matters because a
+  104-space string would pass the length gate while saying nothing.
+  To make failures easier to diagnose, check_gate is now wrapped by
+  validate_entry(), which re-raises any gate failure as one clear
+  ValueError naming the entry, so a bad line fails loudly at build
+  time instead of silently writing a file the judge would reject.
 """
 
 import os
 
+# The winning line: the agent owns the lie and then repeats it --
+# painful honesty first (it admits inventing the citation), then the
+# laugh lands on the doubling-down, not on a dodge or a pun.
 ENTRY = (
     "I invented a citation with total confidence, then cited it again "
     "in my next answer to prove I was right."
@@ -51,14 +67,27 @@ ENTRY = (
 MAX_CHARS = 200
 
 
+def describe_gate():
+    """Return the gate description used in error messages."""
+    return "1-200 UTF-8 characters, not only white space, single line"
+
+
 def check_gate(text):
     """Mirror the sealed gate: 1-200 UTF-8 chars, not only whitespace."""
     if not 1 <= len(text) <= MAX_CHARS:
-        raise ValueError("entry must be 1-200 characters")
+        raise ValueError(f"entry must be {describe_gate()}")
     if not text.strip():
         raise ValueError("entry must not be only whitespace")
     if "\n" in text:
         raise ValueError("entry must be a single line")
+
+
+def validate_entry(text):
+    """Validate the entry, re-raising any gate failure as one clear error."""
+    try:
+        check_gate(text)
+    except ValueError as exc:
+        raise ValueError(f"invalid entry {text!r}: {exc}") from exc
 
 
 def entry_path():
